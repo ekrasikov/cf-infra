@@ -34,6 +34,21 @@ Resources:
         - Key: Name
           Value: cf-VPC
 
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags:
+        - Key: Name
+          Value: cf-igw
+
+  # Internet gateway to VOC attachment
+  VpcInternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
   # Public subnet
   PublicSubnet:
     Type: AWS::EC2::Subnet
@@ -57,6 +72,47 @@ Resources:
         - Key: Name
           Value: cf-private-subnet
       VpcId: !Ref Vpc
+
+  # Private Route table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref Vpc
+
+  # Public Route table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref Vpc
+
+  # Public subnet-RouteTable association
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  # Private subnet-RouteTable association
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet
+
+  # Route for public subnet
+  Type: AWS::EC2::Route
+  DependsOn: VpcInternetGatewayAttachment
+  Properties: 
+    DestinationCidrBlock: 0.0.0.0/0
+    GatewayId: !Ref InternetGateway
+    RouteTableId: !Ref PublicRouteTable
+
+  # Route for private subnet
+  Type: AWS::EC2::Route
+  Properties: 
+    DestinationCidrBlock: 0.0.0.0/0
+    GatewayId: !Ref NatGateway
+    RouteTableId: !Ref PrivateRouteTable
 
   # Web server Security Group
   WebSecurityGroup:
@@ -85,6 +141,25 @@ Resources:
           IpProtocol: 6
           FromPort: 22
           ToPort: 22 
+
+  # Elastic IP
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: "vpc"
+
+  # Nat-gw
+  NatGw:
+    Type: 'AWS::EC2::NatGateway'
+    DependsOn: VPCGatewayAttach
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        !GetAtt ElasticIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: cf-nat-gw
 
   # Web server EC2 instance
   WebInstance:
