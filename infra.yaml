@@ -42,7 +42,27 @@ Resources:
         - Key: Name
           Value: cf-igw
 
-  # Internet gateway to VOC attachment
+
+  # Elastic IP
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: "vpc"
+
+  # Nat-gw
+  NatGateway:
+    Type: 'AWS::EC2::NatGateway'
+#    DependsOn: VPCGatewayAttach
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        !GetAtt ElasticIp.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: cf-nat-gw
+
+  # Internet gateway to VPC attachment
   VpcInternetGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties: 
@@ -100,19 +120,21 @@ Resources:
       SubnetId: !Ref PrivateSubnet
 
   # Route for public subnet
-  Type: AWS::EC2::Route
-  DependsOn: VpcInternetGatewayAttachment
-  Properties: 
-    DestinationCidrBlock: 0.0.0.0/0
-    GatewayId: !Ref InternetGateway
-    RouteTableId: !Ref PublicRouteTable
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcInternetGatewayAttachment
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
 
   # Route for private subnet
-  Type: AWS::EC2::Route
-  Properties: 
-    DestinationCidrBlock: 0.0.0.0/0
-    GatewayId: !Ref NatGateway
-    RouteTableId: !Ref PrivateRouteTable
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref NatGateway
+      RouteTableId: !Ref PrivateRouteTable
 
   # Web server Security Group
   WebSecurityGroup:
@@ -141,25 +163,6 @@ Resources:
           IpProtocol: 6
           FromPort: 22
           ToPort: 22 
-
-  # Elastic IP
-  ElasticIp:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: "vpc"
-
-  # Nat-gw
-  NatGw:
-    Type: 'AWS::EC2::NatGateway'
-    DependsOn: VPCGatewayAttach
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId:
-        !GetAtt ElasticIP.AllocationId
-      SubnetId: !Ref PublicSubnet
-      Tags:
-        - Key: Name
-          Value: cf-nat-gw
 
   # Web server EC2 instance
   WebInstance:
