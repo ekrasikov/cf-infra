@@ -75,7 +75,7 @@ Resources:
     Properties:
       AvailabilityZone: !Join [ "" , [ !Ref "AWS::Region", "a" ] ]
       CidrBlock: !Select [ 0, !Cidr [ !GetAtt Vpc.CidrBlock, 2, 8 ]]
-      MapPublicIpOnLaunch: Boolean
+      MapPublicIpOnLaunch: True
       Tags:
         - Key: Name
           Value: cf-public-subnet
@@ -87,7 +87,7 @@ Resources:
     Properties:
       AvailabilityZone: !Join [ "" , [ !Ref "AWS::Region", "a" ] ]
       CidrBlock: !Select [ 1, !Cidr [ !GetAtt Vpc.CidrBlock, 2, 8 ]]
-      MapPublicIpOnLaunch: Boolean
+      MapPublicIpOnLaunch: False
       Tags:
         - Key: Name
           Value: cf-private-subnet
@@ -133,7 +133,7 @@ Resources:
     Type: AWS::EC2::Route
     Properties: 
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref NatGateway
+      NatGatewayId: !Ref NatGateway
       RouteTableId: !Ref PrivateRouteTable
 
   # Web server Security Group
@@ -142,8 +142,9 @@ Resources:
     Properties:
       GroupName: cf-WebSecurityGroup
       GroupDescription: Allow HTTP + SSH from bastion host
+      VpcId: !Ref Vpc
       SecurityGroupIngress:
-        - CidrIp: !GetAtt BastionInstance.PrivateIp
+        - CidrIp: !Join [ "/" , [ !GetAtt BastionInstance.PrivateIp, 32 ] ]
           IpProtocol: 6
           FromPort: 22
           ToPort: 22 
@@ -158,6 +159,7 @@ Resources:
     Properties:
       GroupName: cf-BastionSecurityGroup
       GroupDescription: Enable SSH access via port 22
+      VpcId: !Ref Vpc
       SecurityGroupIngress:
         - CidrIp: 0.0.0.0/0
           IpProtocol: 6
@@ -169,6 +171,11 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref WebInstanceType
+      ImageId:
+        Fn::FindInMap:
+          - AMIByRegionMap
+          - !Ref 'AWS::Region'
+          - AMI
       SubnetId: !Ref PrivateSubnet
       SecurityGroupIds:
         - !Ref WebSecurityGroup
@@ -182,6 +189,11 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
+      ImageId:
+        Fn::FindInMap:
+          - AMIByRegionMap
+          - !Ref 'AWS::Region'
+          - AMI
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref BastionSecurityGroup
