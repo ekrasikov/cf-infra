@@ -11,6 +11,10 @@ Parameters:
     AccessKeyName:
       Description: Select existing key pair for the instances
       Type: AWS::EC2::KeyPair::KeyName
+    VpcCidrBlock:
+      Description: Select existing key pair for the instances
+      Type: String
+      Default: "10.1.0.0/16"
 
 Mappings:
   AMIByRegionMap:
@@ -20,11 +24,74 @@ Mappings:
       AMI: ami-a9d09ed1
 
 Resources:
+
+  # VPC
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref VpcCidrBlock
+      Tags:
+        - Key: Name
+          Value: cf-VPC
+
+  # Public subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Join [ "" , [ !Ref "AWS::Region", "a" ] ]
+      CidrBlock: !Select [ 0, !Cidr [ !GetAtt Vpc.CidrBlock, 2, 8 ]]
+      MapPublicIpOnLaunch: Boolean
+      Tags:
+        - Key: Name
+          Value: cf-public-subnet
+      VpcId: !Ref Vpc
+
+  # Private subnet
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Join [ "" , [ !Ref "AWS::Region", "a" ] ]
+      CidrBlock: !Select [ 1, !Cidr [ !GetAtt Vpc.CidrBlock, 2, 8 ]]
+      MapPublicIpOnLaunch: Boolean
+      Tags:
+        - Key: Name
+          Value: cf-private-subnet
+      VpcId: !Ref Vpc
+
+  # Web server Security Group
+  WebSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: cf-WebSecurityGroup
+      GroupDescription: Allow HTTP + SSH from bastion host
+      SecurityGroupIngress:
+        - CidrIp: !GetAtt BastionInstance.PrivateIp
+          IpProtocol: 6
+          FromPort: 22
+          ToPort: 22 
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: 6
+          FromPort: 80
+          ToPort: 80
+
+  # Bastion host Security Group
+  BastionSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: cf-BastionSecurityGroup
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: 6
+          FromPort: 22
+          ToPort: 22 
+
   # Web server EC2 instance
   WebInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref WebInstanceType
+      SubnetId: !Ref PrivateSubnet
       SecurityGroupIds:
         - !Ref WebSecurityGroup
       KeyName: !Ref AccessKeyName
@@ -37,6 +104,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
+      SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref BastionSecurityGroup
       KeyName: !Ref AccessKeyName
@@ -44,29 +112,7 @@ Resources:
         - Key: Name
           Value: cf-bastion-1
 
-  # Web server Security Group
-  WebSecurityGroup
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      GroupName: cf-WebSecurityGroup
-      GroupDescription: Enable SSH access via port 22 from bastion host
-      SecurityGroupIngress:
-        - CidrIp: !GetAtt BastionInstance.PrivateIp
-          IpProtocol: 6
-          FromPort: 22
-          ToPort: 22 
 
-  # Bastion host Security Group
-  BastionSecurityGroup
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      GroupName: cf-BastionSecurityGroup
-      GroupDescription: Enable SSH access via port 22
-      SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: 6
-          FromPort: 22
-          ToPort: 22 
 
 
 
