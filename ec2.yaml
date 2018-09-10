@@ -17,7 +17,7 @@ Parameters:
       Description: Select instance name
       Type: String
 
-
+Resources:
 # Web server EC2 instance
   WebInstance:
     Type: AWS::EC2::Instance
