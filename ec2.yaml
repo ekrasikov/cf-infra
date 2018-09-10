@@ -1,0 +1,37 @@
+Parameters:
+    WebInstanceType:
+      Description: Choose type of EC2 instance to use for web servers
+      Type: String
+      Default: t3.nano
+      AllowedValues:
+        - t3.nano
+        - t3.micro
+        - t2.micro
+    AccessKeyName:
+      Description: Select existing key pair for the instances
+      Type: AWS::EC2::KeyPair::KeyName
+    PrivateSubnet:
+      Description: Select subnet for the instances
+      Type: AWS::EC2::Subnet::Id
+    Name:
+      Description: Select instance name
+      Type: String
+
+
+# Web server EC2 instance
+  WebInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref WebInstanceType
+      ImageId: ami-04681a1dbd79675a5
+      SubnetId: !Ref PrivateSubnet
+      SecurityGroupIds:
+        - sg-0a4bfb1faedeb6169
+      KeyName: !Ref AccessKeyName
+      Tags:
+        - Key: Name
+          Value: !Ref Name
+      UserData: !Base64 |
+        #cloud-config
+        repo_update: true
+        repo_upgrade: all
